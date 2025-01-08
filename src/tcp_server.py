@@ -3,7 +3,7 @@ import threading
 
 # Configuration du serveur
 HOST = '0.0.0.0'  # Écoute sur toutes les interfaces réseau
-PORT = 5088  # Port défini pour le protocole
+PORT = 6015  # Port défini pour le protocole
 
 
 # Fonction pour traiter chaque connexion client
