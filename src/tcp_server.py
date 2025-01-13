@@ -1,140 +1,99 @@
 import socket
 import threading
 import datetime
-import time
-
-# Configuration du serveur
-HOST = '0.0.0.0'  # Écoute sur toutes les interfaces réseau
-PORT = 6015  # Port défini pour le protocole
-MAX_SIZE = 10 * 1024 * 1024  # 10 Mo
-
-# IMEI
-IMEI = "861265062672529"
 
 
-# Fonction pour traiter chaque connexion client
-def handle_client(conn, addr):
+class TCPServer:
+    def __init__(self, host='0.0.0.0', port=5088):
+        self.TCP_IP = host
+        self.TCP_PORT = port
+        self.server_socket = None
+        self.BUFFER_SIZE = 1024
 
-    try:
-        # Envoyer la commande BP16 dès qu'un appareil se connecte
-        send_bp16_command(conn)
+    def start(self):
+        """Démarre le serveur TCP."""
+        # Création et configuration du socket
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            # Utilisation de SO_REUSEPORT si SO_REUSEADDR n'est pas disponible
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except AttributeError:
+            print("SO_REUSEPORT n'est pas disponible, passage sans option de réutilisation du port.")
 
-        buffer = b""  # Tampon pour stocker les données reçues
-        last_activity_time = time.time()  # Pour surveiller les intervalles d'inactivité.
+        self.server_socket.bind((self.TCP_IP, self.TCP_PORT))
 
-        while True:
-            # Recevoir les données de l'appareil
-            print("OK - En attente de données...")
-            chunk = conn.recv(4096)
+        print(f"Serveur TCP démarré sur {self.TCP_IP}:{self.TCP_PORT}...")
 
-            if not chunk:
-                print("Aucune donnée reçue, la connexion est peut-être fermée.")
+        try:
+            while True:
+                # Accepter une nouvelle connexion
+                self.server_socket.listen()
+                client_socket, client_address = self.server_socket.accept()
+                print(f"Connexion établie avec {client_address[0]}:{client_address[1]}")
 
-                current_time = time.time()
+                # Gérer la connexion dans un thread séparé
+                client_thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
+                client_thread.start()
+        except KeyboardInterrupt:
+            print("\nArrêt du serveur...")
+        finally:
+            self.stop()
 
-                if current_time - last_activity_time > 600:  # 10 minutes d'inactivité
-                    print(f"Aucune donnée depuis 10 minutes. Déconnexion de {addr}.")
+    def handle_client(self, client_socket, client_address):
+        """Gère la communication avec un client."""
+        try:
+            while True:
+                # Recevoir les données du client
+                data = client_socket.recv(self.BUFFER_SIZE)
+                if not data:
+                    print(f"Connexion fermée par le client : {client_address[0]}")
                     break
-                else:
-                    print(f"En attente de données depuis {addr}...")
-                    time.sleep(30)  # Attente continue (ou toute autre action nécessaire)
-                    continue
 
-            last_activity_time = time.time()  # Données reçues, réinitialisation de l'inactivité.
+                message = data.decode('utf-8').strip()
+                print(f"Données reçues de {client_address[0]} : {message}")
 
-            buffer += chunk
-            print(f"Reçu {len(chunk)} octets, total : {len(buffer)} octets")
-
-            # Limiter la taille des données pour éviter des dépassements
-            if len(buffer) > MAX_SIZE:
-                print("Erreur : données reçues dépassent la taille maximale autorisée (10 Mo).")
-                break
-
-            # Vérifiez si le message est complet (utilisez "#" comme délimiteur)
-            if buffer.endswith(b"#"):
-                message = buffer.decode('utf-8')
-                print(f"Paquet complet reçu : {message}")
-
-                # Traiter le paquet
-                response = process_packet(message)
+                # Traiter le message reçu
+                response = self.process_message(message)
                 if response:
-                    conn.sendall(response.encode('utf-8'))
-                    print(f"Réponse envoyée à {addr} : {response}")
-                else:
-                    print(f"Aucune réponse nécessaire pour : {message}")
+                    client_socket.sendall(response.encode('utf-8'))
+                    print(f"Réponse envoyée à {client_address[0]} : {response}")
+        except Exception as e:
+            print(f"Erreur avec {client_address[0]}: {e}")
+        finally:
+            client_socket.close()
 
-                buffer = b""  # Réinitialiser le tampon pour le prochain paquet
+    @staticmethod
+    def process_message(message):
+        """Traite les messages reçus et génère une réponse appropriée."""
+        if message.startswith("IWAP00"):
+            # Exemple de réponse au paquet AP00
+            server_time = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
+            return f"IWBP00,{server_time},8#"
+        elif message.startswith("IWAP16"):
+            # Exemple de réponse pour un paquet de localisation (AP16)
+            return "IWBP16#"
+        else:
+            print(f"Paquet non reconnu : {message}")
+            return None
 
-    except Exception as e:
-        print(f"Erreur avec {addr}: {e}")
-    finally:
-        conn.close()
-        print(f"Connexion fermée avec {addr}")
-
-# Fonction pour envoyer une commande BP16
-def send_bp16_command(conn):
-    # Générer un numéro de journal unique (timestamp en secondes)
-    journal_no = datetime.datetime.utcnow().strftime("%H%M%S")
-    command = f"IWBP16,{IMEI},{journal_no}#"
-
-    try:
-        # Envoyer la commande à la montre connectée
-        conn.sendall(command.encode('utf-8'))
-        print(f"Commande BP16 envoyée avec succès : {command}")
-    except Exception as e:
-        print(f"Erreur lors de l'envoi de la commande BP16 : {e}")
-
-
-# Fonction pour analyser les paquets et générer une réponse
-def process_packet(packet):
-    if packet.startswith("IWAP00"):
-        # Réponse au paquet AP00
-        server_time = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        return f"IWBP00,{server_time},8#"
-
-    elif packet.startswith("IWAP01"):
-        # Paquet de localisation (AP01)
-        return "IWBP01#"
-    elif packet.startswith("IWAP03"):
-        # Paquet de maintien de connexion (AP03)
-        return "IWBP03#"
-        # Vérifiez si c'est une réponse AP16
-    elif packet.startswith("IWAP16"):
-        journal_no = packet.split(",")[1].strip("#")
-        print(f"Réponse reçue pour BP16 avec journal no : {journal_no}")
-        # La montre va envoyer des données de localisation après cette réponse
-
-    elif packet.startswith("IWAP49"):
-        # Paquet de rythme cardiaque (AP49)
-        heart_rate = packet.split(",")[1].strip("#")
-        print(f"Rythme cardiaque reçu : {heart_rate} bpm")
-        return "IWBP49#"
-    else:
-        print(f"Paquet non reconnu : {packet}")
-        return None  # Pas de réponse pour les paquets inconnus
+    def stop(self):
+        """Arrête le serveur TCP et libère les ressources."""
+        if self.server_socket:
+            self.server_socket.close()
+            print("Serveur arrêté.")
 
 
-# Fonction principale pour démarrer le serveur
-def start_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Permettre la réutilisation du port
-        server.bind((HOST, PORT))
-        server.listen()
-        print(f"Serveur TCP démarré sur {HOST}:{PORT}...")
-
-        while True:
-            # Accepter une nouvelle connexion
-            conn, addr = server.accept()
-            print(f"Connexion établie avec {addr}")
-
-            # Gérer la connexion dans un thread séparé
-            client_thread = threading.Thread(target=handle_client, args=(conn, addr))
-            client_thread.start()
-
-
-# Lancer le serveur
 if __name__ == "__main__":
-    try:
-        start_server()
-    except KeyboardInterrupt:
-        print("\nServeur arrêté.")
+    # Configuration du serveur
+    HOST = '0.0.0.0'  # Écoute sur toutes les interfaces réseau
+    PORT = 5088  # Port défini pour le protocole
+    MAX_SIZE = 10 * 1024 * 1024  # 10 Mo
+
+    # IMEI
+    IMEI = "861265062672529"
+
+    # Créer une instance du serveur et démarrer
+    server = TCPServer(host=HOST, port=PORT)
+    server.start()
+
+
