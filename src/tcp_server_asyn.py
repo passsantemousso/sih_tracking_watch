@@ -3,7 +3,7 @@ import asyncio
 import datetime
 
 class TCPServer:
-    def __init__(self, host='0.0.0.0', port=5088):
+    def __init__(self, host='0.0.0.0', port=6015):
         self.host = host
         self.port = port
 

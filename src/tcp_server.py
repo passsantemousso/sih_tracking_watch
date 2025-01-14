@@ -1,10 +1,11 @@
 import socket
 import threading
 import datetime
+from datetime import timezone
 
 
 class TCPServer:
-    def __init__(self, host='0.0.0.0', port=5088):
+    def __init__(self, host='0.0.0.0', port=6020):
         self.TCP_IP = host
         self.TCP_PORT = port
         self.server_socket = None
@@ -67,7 +68,7 @@ class TCPServer:
         """Traite les messages reçus et génère une réponse appropriée."""
         if message.startswith("IWAP00"):
             # Exemple de réponse au paquet AP00
-            server_time = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
+            server_time = datetime.datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
             return f"IWBP00,{server_time},8#"
         elif message.startswith("IWAP16"):
             # Exemple de réponse pour un paquet de localisation (AP16)
@@ -86,14 +87,14 @@ class TCPServer:
 if __name__ == "__main__":
     # Configuration du serveur
     HOST = '0.0.0.0'  # Écoute sur toutes les interfaces réseau
-    PORT = 5088  # Port défini pour le protocole
+    PORT = 6015  # Port défini pour le protocole
     MAX_SIZE = 10 * 1024 * 1024  # 10 Mo
 
     # IMEI
     IMEI = "861265062672529"
 
     # Créer une instance du serveur et démarrer
-    server = TCPServer(host=HOST, port=PORT)
+    server = TCPServer()
     server.start()
 
 
