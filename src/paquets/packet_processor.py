@@ -111,7 +111,7 @@ class PacketProcessor:
 
         try:
             # Suppression du préfixe IWAP03 et du suffixe #
-            message = message[6:-1]
+            message = message[7:-1]
 
             # Découpage du message en parties
             parts = message.split(',')
@@ -274,7 +274,7 @@ class PacketProcessor:
 
         try:
             # Suppression du préfixe IWAPHT et du suffixe #
-            message_content = message[6:-1]
+            message_content = message[7:-1]
 
             # Découpage du message en valeurs
             values = message_content.split(',')
@@ -314,7 +314,7 @@ class PacketProcessor:
 
         try:
             # Suppression du préfixe IWAPHP et du suffixe #
-            message = message[6:-1]
+            message = message[7:-1]
 
             # Découpage du message en valeurs
             values = message.split(',')
