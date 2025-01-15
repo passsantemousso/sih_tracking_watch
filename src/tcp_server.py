@@ -2,7 +2,7 @@ import socket
 import threading
 import datetime
 from datetime import timezone
-
+from paquets.packet_processor import PacketProcessor
 
 class TCPServer:
     def __init__(self, host='0.0.0.0', port=6020):
@@ -10,6 +10,7 @@ class TCPServer:
         self.TCP_PORT = port
         self.server_socket = None
         self.BUFFER_SIZE = 1024
+        self.processor = PacketProcessor()
 
     def start(self):
         """Démarre le serveur TCP."""
@@ -54,7 +55,7 @@ class TCPServer:
                 print(f"Données reçues de {client_address[0]} : {message}")
 
                 # Traiter le message reçu
-                response = self.process_message(message)
+                response = self.processor.process_message(message)
                 if response:
                     client_socket.sendall(response.encode('utf-8'))
                     print(f"Réponse envoyée à {client_address[0]} : {response}")
@@ -62,20 +63,6 @@ class TCPServer:
             print(f"Erreur avec {client_address[0]}: {e}")
         finally:
             client_socket.close()
-
-    @staticmethod
-    def process_message(message):
-        """Traite les messages reçus et génère une réponse appropriée."""
-        if message.startswith("IWAP00"):
-            # Exemple de réponse au paquet AP00
-            server_time = datetime.datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-            return f"IWBP00,{server_time},8#"
-        elif message.startswith("IWAP16"):
-            # Exemple de réponse pour un paquet de localisation (AP16)
-            return "IWBP16#"
-        else:
-            print(f"Paquet non reconnu : {message}")
-            return None
 
     def stop(self):
         """Arrête le serveur TCP et libère les ressources."""
