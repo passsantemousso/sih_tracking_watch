@@ -17,28 +17,81 @@ class PacketProcessor:
 
     @staticmethod
     def extract_ap01_data(message: str) -> dict:
-        """Extrait les données du paquet AP01 et les retourne sous forme de dictionnaire."""
+        """
+        Extrait les données du paquet AP01 et les retourne sous forme de dictionnaire.
+        """
         try:
-            parts = message[6:-1].split(",")
+            # Supprimer le préfixe "IWAP01" et le délimiteur final "#"
+            content = message[6:-1]
+            parts = content.split(",")
+
+            # Extraire les données GPS
             gps_data = parts[0]
-            additional_data = parts[1:]
-
             gps_info = {
-                "latitude": gps_data[7:16],
-                "longitude": gps_data[17:27],
-                "speed": gps_data[27:32],
-                "direction": gps_data[33:39]
+                "latitude": gps_data[7:16].strip() or None,
+                "latitude_direction": gps_data[16].strip() or None,
+                "longitude": gps_data[17:27].strip() or None,
+                "longitude_direction": gps_data[27].strip() or None,
+                "speed": gps_data[28:33].strip() or None,
+                "gmt_time": gps_data[33:39].strip() or None,
+                "direction_angle": gps_data[39:45].strip() or None,
             }
 
+            # Extraire les informations de statut
+            status_raw = parts[1]
             status_info = {
-                "gsm_signal": additional_data[0][:3],
-                "satellites": additional_data[0][3:6],
-                "battery_level": additional_data[0][6:9]
+                "gsm_signal": int(status_raw[0:3]) if status_raw[0:3].isdigit() else None,
+                "satellites": int(status_raw[3:6]) if status_raw[3:6].isdigit() else None,
+                "battery_level": int(status_raw[6:9]) if status_raw[6:9].isdigit() else None,
+                "remaining_space": int(status_raw[9:10]) if status_raw[9:10].isdigit() else None,
+                "fortification_state": int(status_raw[10:12]) if status_raw[10:12].isdigit() else None,
+                "working_mode": int(status_raw[12:14]) if status_raw[12:14].isdigit() else None,
             }
 
+            # Extraire les informations Bluetooth
+            bluetooth_raw = parts[2].split("&")
+            bluetooth_info = []
+            for bt in bluetooth_raw:
+                bt_parts = bt.split("|")
+                if len(bt_parts) == 3:
+                    bluetooth_info.append({
+                        "name": bt_parts[0].strip() or None,
+                        "mac": bt_parts[1].strip() or None,
+                        "signal_strength": int(bt_parts[2]) if bt_parts[2].isdigit() else None,
+                    })
+
+            # Extraire les données LBS
+            lbs_raw = parts[3:5]
+            lbs_info = []
+            for lbs in lbs_raw:
+                lbs_parts = lbs.split("|")
+                if len(lbs_parts) == 4:
+                    lbs_info.append({
+                        "mcc": int(lbs_parts[0]) if lbs_parts[0].isdigit() else None,
+                        "mnc": int(lbs_parts[1]) if lbs_parts[1].isdigit() else None,
+                        "lac": int(lbs_parts[2]) if lbs_parts[2].isdigit() else None,
+                        "cid": int(lbs_parts[3]) if lbs_parts[3].isdigit() else None,
+                    })
+
+            # Extraire les informations WiFi
+            wifi_raw = parts[5:]
+            wifi_info = []
+            for wifi in wifi_raw:
+                wifi_parts = wifi.split("|")
+                if len(wifi_parts) == 3:
+                    wifi_info.append({
+                        "ssid": wifi_parts[0].strip() or None,
+                        "mac": wifi_parts[1].strip() or None,
+                        "signal_strength": int(wifi_parts[2]) if wifi_parts[2].isdigit() else None,
+                    })
+
+            # Retourner les informations extraites sous forme de dictionnaire
             return {
                 "gps": gps_info,
-                "status": status_info
+                "status": status_info,
+                "bluetooth": bluetooth_info,
+                "lbs": lbs_info,
+                "wifi": wifi_info,
             }
         except Exception as e:
             print(f"Erreur lors de l'extraction des données AP01 : {e}")
@@ -48,6 +101,12 @@ class PacketProcessor:
     def extract_ap02_data(message: str) -> dict:
         """
         Extrait les données du paquet AP02 et les retourne sous forme de dictionnaire.
+
+        Args:
+            message (str): Le message reçu pour la commande AP02.
+
+        Returns:
+            dict: Un dictionnaire contenant les informations extraites.
         """
         try:
             # Supprimer le préfixe "IWAP02," et le délimiteur final "#"
@@ -55,51 +114,65 @@ class PacketProcessor:
             parts = content.split(',')
 
             # Extraire la langue
-            language = parts[0]
+            language = parts[0].split('|')[0]
 
             # Extraire les informations Bluetooth
-            bluetooth_raw = parts[1].split('&')
             bluetooth_info = []
-            for bt in bluetooth_raw:
-                bt_parts = bt.split('|')
-                if len(bt_parts) == 3:
-                    bluetooth_info.append({
-                        "name": bt_parts[0],
-                        "mac": bt_parts[1],
-                        "signal_strength": int(bt_parts[2])
-                    })
+            if '@' in parts[0]:
+                bt_raw = parts[0].split('|')[1:]
+                for bt in bt_raw:
+                    if '@' in bt:
+                        _, bt_data = bt.split('@', 1)
+                    else:
+                        bt_data = bt
+                    bt_parts = bt_data.split('&')
+                    for b in bt_parts:
+                        bt_detail = b.split('|')
+                        if len(bt_detail) == 3:
+                            bluetooth_info.append({
+                                "name": bt_detail[0],
+                                "mac": bt_detail[1],
+                                "signal_strength": int(bt_detail[2])
+                            })
 
-            # Extraire les informations des bases
-            base_raw = parts[2].split(',')
-            base_info = []
+            # Extraire le MCC, le MNC et le nombre de bases
+            mcc = parts[3]
+            mnc = parts[4]
+            base_count = int(parts[2])
+            bases_info = []
+            base_raw = parts[5:5 + base_count]
             for base in base_raw:
                 base_parts = base.split('|')
                 if len(base_parts) == 3:
-                    base_info.append({
+                    bases_info.append({
                         "lac": int(base_parts[0]),
                         "cid": int(base_parts[1]),
-                        "signal_strength": int(base_parts[2])
+                        "signal_strength": 150 - abs(int(base_parts[2]))
                     })
 
             # Extraire les informations WiFi
-            wifi_raw = parts[3].split('&')
             wifi_info = []
+            wifi_count = int(parts[5 + base_count])
+            wifi_raw = parts[6 + base_count:]
             for wifi in wifi_raw:
                 wifi_parts = wifi.split('|')
                 if len(wifi_parts) == 3:
                     wifi_info.append({
                         "ssid": wifi_parts[0],
                         "mac": wifi_parts[1],
-                        "signal_strength": int(wifi_parts[2])
+                        "signal_strength": 150 - abs(int(wifi_parts[2]))
                     })
 
             # Retourner les informations extraites sous forme de dictionnaire
             return {
                 "language": language,
                 "bluetooth": bluetooth_info,
-                "bases": base_info,
+                "mcc": mcc,
+                "mnc": mnc,
+                "bases": bases_info,
                 "wifi": wifi_info
             }
+
         except Exception as e:
             print(f"Erreur lors de l'extraction des données AP02 : {e}")
             return {}
