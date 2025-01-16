@@ -1,16 +1,19 @@
 import socket
 import threading
-import datetime
-from datetime import timezone
 from paquets.packet_processor import PacketProcessor
+from kafka_custom.producer.kafka_producer import KafkaProducerWrapper
 
 class TCPServer:
-    def __init__(self, host='0.0.0.0', port=6020):
+    def __init__(self, host='0.0.0.0', port=6020, kafka_topic='health_data', kafka_brokers=None):
         self.TCP_IP = host
         self.TCP_PORT = port
         self.server_socket = None
         self.BUFFER_SIZE = 1024
         self.processor = PacketProcessor()
+        self.kafka_producer = KafkaProducerWrapper(
+            brokers=kafka_brokers or ['localhost:9092'],
+            topic=kafka_topic
+        )
 
     def start(self):
         """Démarre le serveur TCP."""
@@ -53,9 +56,10 @@ class TCPServer:
 
                 message = data.decode('utf-8').strip()
                 print(f"Données reçues de {client_address[0]} : {message}")
+                self.process_and_send(message)
 
-                # Traiter le message reçu
-                response = self.processor.process_message(message)
+                # Réponse du serveur à la montre
+                response = self.processor.process_message_response(message)
                 if response:
                     client_socket.sendall(response.encode('utf-8'))
                     print(f"Réponse envoyée à {client_address[0]} : {response}")
@@ -63,6 +67,17 @@ class TCPServer:
             print(f"Erreur avec {client_address[0]}: {e}")
         finally:
             client_socket.close()
+
+    def process_and_send(self, data):
+        """
+        Traite les données reçues et les envoie au producteur Kafka.
+        """
+        # Traitement des données
+        processed_data = {
+            "raw_data": data,
+            "processed_at": "2025-01-15T12:00:00"  #  Métadonnée ajoutée
+        }
+        self.kafka_producer.send(processed_data)
 
     def stop(self):
         """Arrête le serveur TCP et libère les ressources."""

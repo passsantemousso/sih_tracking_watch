@@ -1,0 +1,84 @@
+services:
+    tcp_server:
+        build:
+            context: .
+            dockerfile: .docker/python/Dockerfile
+        container_name: tcp_server
+        ports:
+            - "6020:6020"  # Port pour votre serveur TCP
+        volumes:
+            - ./src:/app
+        environment:
+            - TCP_HOST=0.0.0.0
+            - TCP_PORT=6020
+            - KAFKA_BROKERS="kafka:9092"
+#            - MONGO_URI=mongodb://mongo:27017
+        depends_on:
+            - kafka
+#            - mongo
+        restart: always
+
+    kafka:
+        image: 'confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION}'
+        container_name: kafka
+        ports:
+            - "9092:9092"
+        environment:
+            - KAFKA_BROKER_ID=1
+            - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP= INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+            - KAFKA_INTER_BROKER_LISTENER_NAME= INTERNAL
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+            - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+            - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+        healthcheck:
+            test: nc -vz localhost 9092
+            interval: 10s
+            timeout: 10s
+            retries: 3
+        depends_on:
+            - zookeeper
+        restart: always
+
+    zookeeper:
+        image: 'confluentinc/cp-zookeeper:${CONFLUENT_PLATFORM_VERSION}'
+        container_name: zookeeper
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_SERVER_ID=1
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_SERVERS=zookeeper:2888:3888
+        restart: always
+
+#    consumer:
+#        build:
+#            context: .
+#            dockerfile: .docker/python/Dockerfile
+#        volumes:
+#            - ./src:/app
+#        command: python /app/consumer.py
+#        depends_on:
+#            - kafka_custom
+
+    kafka-ui:
+        container_name: kafka-ui
+        image: provectuslabs/kafka-ui:latest
+        ports:
+            - "8087:8080"
+        environment:
+            - KAFKA_CLUSTERS_0_NAME="local"
+            - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS="kafka:9092"
+            - DYNAMIC_CONFIG_ENABLED= 'true'
+        depends_on:
+            - kafka
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+

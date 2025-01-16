@@ -476,3 +476,45 @@ class PacketProcessor:
         except Exception as e:
             print(f"Erreur lors du traitement du message : {e}")
             return None
+
+    @staticmethod
+    def process_message_response(message: str) -> str | None:
+        """Génère une réponse appropriée pour chaque cas."""
+        try:
+            if message.startswith("IWAP00"):
+                server_time = datetime.datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+                return f"IWBP00,{server_time},8#"
+
+            elif message.startswith("IWAP01"):
+                return "IWBP01#"
+
+            elif message.startswith("IWAP02"):
+                return "IWBP02#"
+
+            elif message.startswith("IWAP03"):
+                return "IWBP03#"
+
+            elif message.startswith("IWAP16"):
+                return "IWBP16#"
+
+            elif message.startswith("IWAP49"):
+                return "IWBP49#"
+
+            elif message.startswith("IWAP50"):
+                return "IWBP50#"
+
+            elif message.startswith("IWAP97"):
+                return "IWBP97#"
+
+            elif message.startswith("IWAPHT"):
+                return "IWBPHT#"
+
+            elif message.startswith("IWAPHP"):
+                return "IWBPHP#"
+
+            else:
+                print(f"Paquet non reconnu : {message}")
+                return None
+        except Exception as e:
+            print(f"Erreur lors du traitement du message : {e}")
+            return None

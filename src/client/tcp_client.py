@@ -17,7 +17,7 @@ messages = {
 
 # Paramètres du serveur
 SERVER_IP = "127.0.0.1"  # Remplacez par l'adresse IP du serveur
-SERVER_PORT = 12345      # Remplacez par le port du serveur
+SERVER_PORT = 6020      # Remplacez par le port du serveur
 
 def send_message_to_server(message: str):
     """Envoie un message au serveur via une connexion TCP."""
@@ -36,7 +36,6 @@ def main():
     while True:
         for command, message in messages.items():
             send_message_to_server(message)
-            time.sleep(10)  # Attendre 10 secondes entre chaque envoi
         print("Tous les messages ont été envoyés. Attente de 3 minutes avant de recommencer...")
         time.sleep(180)  # Attendre 3 minutes avant de recommencer le cycle
 
