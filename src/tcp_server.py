@@ -1,4 +1,6 @@
 import socket
+import datetime
+from datetime import timezone
 import threading
 from paquets.packet_processor import PacketProcessor
 from kafka_custom.producer.kafka_producer import KafkaProducerWrapper
@@ -11,7 +13,7 @@ class TCPServer:
         self.BUFFER_SIZE = 1024
         self.processor = PacketProcessor()
         self.kafka_producer = KafkaProducerWrapper(
-            brokers=kafka_brokers or ['localhost:9092'],
+            brokers=kafka_brokers or ['127.0.0.1:9092'],
             topic=kafka_topic
         )
 
@@ -75,7 +77,7 @@ class TCPServer:
         # Traitement des données
         processed_data = {
             "raw_data": data,
-            "processed_at": "2025-01-15T12:00:00"  #  Métadonnée ajoutée
+            "processed_at": datetime.datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         }
         self.kafka_producer.send(processed_data)
 

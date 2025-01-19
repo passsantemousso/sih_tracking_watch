@@ -1,2 +1,2 @@
-kafka-python
-six
+kafka-python==2.0.2
+six==1.17.0
