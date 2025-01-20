@@ -1,9 +1,21 @@
-import datetime
-from datetime import timezone
-
+from datetime import datetime, timezone, timedelta
 
 class PacketProcessor:
     """Classe pour gérer le traitement des différents paquets."""
+
+    @staticmethod
+    def safe_int(value):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def safe_float(value):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
 
     @staticmethod
     def extract_ap00_data(message: str) -> dict:
@@ -367,8 +379,8 @@ class PacketProcessor:
         return data
 
 
-    @staticmethod
-    def extract_aphp_data(message: str) -> dict:
+
+    def extract_aphp_data(self, message: str) -> dict:
         """
         Extrait les données du message APHP (Upload heart rate, BP, SPO2, blood sugar) et les structure sous forme de dictionnaire.
 
@@ -393,12 +405,12 @@ class PacketProcessor:
             values = message.split(',')
 
             # Extraction des valeurs (avec vérification des valeurs manquantes)
-            data['heart_rate'] = values[0] if values[0] else None
-            data['systolic_pressure'] = values[1] if values[1] else None
-            data['diastolic_pressure'] = values[2] if values[2] else None
-            data['spo2'] = values[3] if values[3] else None
-            data['blood_sugar'] = values[4] if values[4] else None
-            data['temperature'] = values[5] if values[5] else None
+            data['heart_rate'] = self.safe_int(values[0])
+            data['systolic_pressure'] = self.safe_int(values[1])
+            data['diastolic_pressure'] = self.safe_int(values[2])
+            data['spo2'] = self.safe_int(values[3])
+            data['blood_sugar'] = self.safe_float(values[4])
+            data['temperature'] = self.safe_float(values[5])
 
         except Exception as e:
             print(f"Erreur lors de l'extraction des données APHP : {e}")
@@ -406,7 +418,7 @@ class PacketProcessor:
 
         return data
 
-    def process_message(self, message: str) -> str | None:
+    def process_clean_data(self, message: str) -> str | None:
         """Traite les messages reçus et génère une réponse appropriée."""
         try:
             if message.startswith("IWAP00"):
@@ -478,12 +490,39 @@ class PacketProcessor:
             return None
 
     @staticmethod
+    def process_raw_mqtt(message: str):
+        """
+        Traite les messages bruts reçus via MQTT.
+        Si le message commence par 'APHP', il est stocké dans un dictionnaire.
+        """
+        try:
+            if message:
+                # Extraire le type de commande (les 4 premiers caractères)
+                command_type = message[:4] if len(message) >= 4 else "UNKNOWN"
+                raw_data = {
+                    "command_type": command_type,
+                    "raw_data": message,
+                    "created_at" : datetime.now(timezone.utc).isoformat(),
+                    "updated_at" : datetime.now(timezone.utc).isoformat()
+                }
+                return raw_data
+            else:
+                return None
+        except Exception as e:
+            print(f"Erreur lors du traitement du message : {e}")
+            return None
+
+    @staticmethod
     def process_message_response(message: str) -> str | None:
         """Génère une réponse appropriée pour chaque cas."""
         try:
             if message.startswith("IWAP00"):
-                server_time = datetime.datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-                return f"IWBP00,{server_time},8#"
+                current_time = datetime.now(timezone.utc)
+                server_time = current_time.strftime("%Y%m%d%H%M%S")
+                timezone_offset = current_time.utcoffset().total_seconds() // 3600  # Décalage en heures
+                response = f"IWBP00,{server_time},{int(timezone_offset)}#"
+
+                return response
 
             elif message.startswith("IWAP01"):
                 return "IWBP01#"
@@ -518,3 +557,8 @@ class PacketProcessor:
         except Exception as e:
             print(f"Erreur lors du traitement du message : {e}")
             return None
+
+    @staticmethod
+    def is_valid_int(value: str) -> int:
+        return int(value) if value.isdigit() else None
+

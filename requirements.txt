@@ -1,2 +1,6 @@
 kafka-python==2.0.2
 six==1.17.0
+paho-mqtt~=2.1.0
+asyncio~=3.4.3
+pymongo~=4.10.1
+python-dotenv~=1.0.1

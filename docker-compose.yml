@@ -45,11 +45,10 @@ services:
 #        restart: always
 
     mqtt-broker:
-        image: eclipse-mosquitto
+        image: eclipse-mosquitto:2.0.15
         container_name: mqtt-broker
         ports:
             - "1883:1883" # Port MQTT standard
-            - "9001:9001" # WebSocket (facultatif)
         volumes:
             - ./.docker/mosquitto/config:/mosquitto/config
             - ./mosquitto/data:/mosquitto/data
@@ -146,7 +145,7 @@ services:
         container_name: mongodb
         hostname: mongodb
         volumes:
-#          - ./mongodb/initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+          - ./.docker/mongodb/initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
           - mongodb-data:/data/db/
           - mongodb-log:/var/log/mongodb/
         env_file:
@@ -158,16 +157,23 @@ services:
           - "${MONGODB_PORT}:${MONGODB_PORT}"
 #        networks:
 #          - mongodb_network
+        healthcheck:
+            test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
     mongo-express:
         image: mongo-express:latest
         container_name: mongo-express
         restart: always
+        env_file:
+            - .env
         environment:
             ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
             ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
             ME_CONFIG_MONGODB_PORT: ${MONGODB_PORT}
-            ME_CONFIG_MONGODB_SERVER: 'mongodb'
+            ME_CONFIG_MONGODB_URL: ${ME_CONFIG_MONGODB_SERVER}
             ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME}
             ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
         ports:

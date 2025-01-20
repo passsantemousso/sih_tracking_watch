@@ -9,7 +9,7 @@ db.createUser({
         db: 'got_db'
       },
     ],
-  });
+});
 
 db.createCollection("got_seasons_collection");
 

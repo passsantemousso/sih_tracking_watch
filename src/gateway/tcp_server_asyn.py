@@ -1,70 +1,96 @@
-import socket
 import asyncio
-import datetime
+from datetime import datetime, timezone, timedelta
+import re
+
 
 class TCPServer:
-    def __init__(self, host='0.0.0.0', port=6015):
+    def __init__(self, mqtt_handler, packet_processor, host='0.0.0.0', port=6020, buffer_size=1024):
+        self.mqtt_handler = mqtt_handler
+        self.packet_processor = packet_processor
         self.host = host
         self.port = port
+        self.buffer_size = buffer_size
+        self.server = None
+        self.device_map = {}  # Dictionnaire pour associer (IP, port) à IMEI
 
-    async def handle_client(self, reader, writer):
-        """Gère la communication avec un client de manière asynchrone."""
-        addr = writer.get_extra_info('peername')
-        print(f"Connexion établie avec {addr}")
+    @staticmethod
+    def extract_imei(message):
+        """Extrait l'IMEI d'un paquet AP00."""
+        imei = message[6:-1]
+        return imei if imei else None
+
+    async def handle_client(self, client_reader, client_writer):
+        client_address = client_writer.get_extra_info('peername')
+        print(f"Connexion établie avec {client_address}")
+
+        imei = None
 
         try:
             while True:
-                # Recevoir les données du client
-                data = await reader.read(1024)
+                data = await client_reader.read(self.buffer_size)
                 if not data:
-                    print(f"Connexion fermée par le client : {addr}")
+                    print(f"Connexion fermée par le client : {client_address}")
                     break
 
                 message = data.decode('utf-8').strip()
-                print(f"Données reçues de {addr} : {message}")
+                print(f"Données reçues de {client_address}: {message}")
 
-                # Traiter le message reçu
-                response = self.process_message(message)
+                # Si c'est un paquet AP00 contenant l'IMEI, on l'associe
+                if message.startswith("IWAP") and "AP00" in message:
+                    imei = self.extract_imei(message)
+
+                    if imei not in self.device_map:
+                        self.device_map[imei] = {"last_address": client_address}
+                        print(f"IMEI {imei} associé à {client_address}")
+
+                        # Réponse avec le paquet BP00
+                        current_time = datetime.now(timezone.utc)
+                        server_time = current_time.strftime("%Y%m%d%H%M%S")
+                        timezone_offset = current_time.utcoffset().total_seconds() // 3600  # Décalage en heures
+                        response = f"IWBP00,{server_time},{int(timezone_offset)}#"
+
+                        if response:
+                            client_writer.write(response.encode('utf-8'))
+                            await client_writer.drain()
+                            print(f"Réponse envoyée à {client_address[0]} : {response}")
+                    continue  # Passer au prochain paquet sans traitement
+
+                if not imei:
+                    print(f"Aucun IMEI trouvé pour {client_address}")
+                    break
+
+
+                # Traitement des données
+                processed_data = self.packet_processor.process_raw_mqtt(message)
+                processed_data['imei'] = imei  # Ajouter l'IMEI aux données
+
+                if processed_data is not None:
+                    # Publier sur MQTT via MQTTHandler
+                    self.mqtt_handler.publish("health_data_topic", str(processed_data))
+
+                # Réponse au client TCP
+                response = self.packet_processor.process_message_response(message)
                 if response:
-                    writer.write(response.encode('utf-8'))
-                    await writer.drain()
-                    print(f"Réponse envoyée à {addr} : {response}")
+                    client_writer.write(response.encode('utf-8'))
+                    await client_writer.drain()
+                    print(f"Réponse envoyée à {client_address[0]} : {response}")
         except Exception as e:
-            print(f"Erreur avec {addr}: {e}")
+            print(f"Erreur avec {client_address}: {e}")
         finally:
-            writer.close()
-            await writer.wait_closed()
-
-    @staticmethod
-    def process_message(message):
-        """Traite les messages reçus et génère une réponse appropriée."""
-        if message.startswith("IWAP00"):
-            # Exemple de réponse au paquet AP00
-            server_time = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
-            return f"IWBP00,{server_time},8#"
-        elif message.startswith("IWAP16"):
-            # Exemple de réponse pour un paquet de localisation (AP16)
-            return "IWBP16#"
-        else:
-            print(f"Paquet non reconnu : {message}")
-            return None
+            print(f"Fermeture de la connexion avec {client_address}")
+            client_writer.close()
+            await client_writer.wait_closed()
 
     async def start(self):
-        """Démarre le serveur TCP de manière asynchrone."""
-        server = await asyncio.start_server(self.handle_client, self.host, self.port)
-        addr = server.sockets[0].getsockname()
-        print(f"Serveur TCP démarré sur {addr}...")
+        self.server = await asyncio.start_server(self.handle_client, self.host, self.port)
+        addr = self.server.sockets[0].getsockname()
+        print(f"Serveur TCP démarré sur {addr}")
 
-        try:
-            async with server:
-                await server.serve_forever()
-        except asyncio.CancelledError:
-            print("\nArrêt du serveur...")
+        async with self.server:
+            await self.server.serve_forever()
 
-if __name__ == "__main__":
-    # Créer une instance du serveur et démarrer
-    server = TCPServer(host='0.0.0.0', port=6015)
-    try:
-        asyncio.run(server.start())
-    except KeyboardInterrupt:
-        print("Serveur arrêté par l'utilisateur.")
+    async def stop(self):
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+            print("Serveur TCP arrêté.")

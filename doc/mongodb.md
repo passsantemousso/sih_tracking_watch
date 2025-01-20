@@ -1,2 +1,2 @@
 1. Connexion mongo db \
-mongosh -port 27017 -authenticationDatabase "admin" -u "root" -p
+docker exec -it mongodb mongosh -u root -p Admin123 --authenticationDatabase admin
