@@ -25,6 +25,17 @@ x-kafka-broker-common: &kafka-broker-common
     - "host.docker.internal:host-gateway"
 
 services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/mydatabase
+    depends_on:
+      - db
+
 #    tcp_server:
 #        build:
 #            context: .

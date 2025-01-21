@@ -30,4 +30,4 @@ RUN pip install --no-cache-dir --upgrade pip \
 EXPOSE 6020
 
 # Lancer le serveur TCP
-CMD ["python", "tcp_server.py"]
+CMD ["python", "app.py"]
