@@ -1,65 +1,60 @@
 import paho.mqtt.client as mqtt
-import traceback
 import json
+import logging
+import traceback
 
 class MqttConsumer:
     """Consommateur MQTT pour traiter les messages et stocker dans MongoDB."""
 
-    def __init__(self, mongodb_helper, packet_processor, broker_address='localhost', port=1883, topic='health_data_topic'):
-        """
-        Initialise le consommateur MQTT.
+    def __init__(self, mongodb_helper, packet_processor, broker_address='localhost', port=1883, topic='health_data_topic', is_debug=False):
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Initialisation de MqttConsumer")
 
-        Args:
-            broker_address (str): Adresse du broker MQTT.
-            port (int): Port du broker MQTT.
-            topic (str): Topic à écouter.
-            packet_processor (PacketProcessor): Instance de la classe PacketProcessor.
-            mongodb_helper (MongoDBHelper): Instance de la classe MongoDBHelper.
-        """
         self.broker_address = broker_address
         self.port = port
         self.topic = topic
         self.packet_processor = packet_processor
         self.mongodb_helper = mongodb_helper
-        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, protocol=mqtt.MQTTv5)
+        self.client = mqtt.Client()
+        self.is_debug = is_debug
 
     def on_connect(self, client, userdata, flags, rc, properties=None):
         """Callback appelé lors de la connexion au broker MQTT."""
-        """
-            Callback appelé lors de la connexion au broker MQTT.
-
-            Args:
-                client: Instance du client MQTT.
-                userdata: Données définies par l'utilisateur (optionnelles).
-                flags: Drapeaux de connexion sous forme de dictionnaire.
-                rc: Code de retour de connexion (0 pour succès).
-                properties: Propriétés MQTT (uniquement pour MQTTv5).
-        """
-
         if rc == 0:
-            print("Connecté au broker MQTT.")
+            self.logger.info("Connecté au broker MQTT.")
             self.client.subscribe(self.topic)
         else:
-            print(f"Échec de connexion avec le code {rc}.")
+            self.logger.error(f"Échec de connexion avec le code {rc}.")
 
     def on_message(self, client, userdata, msg):
         """Callback appelé lors de la réception d'un message."""
         try:
+            # Traitement synchrone du message
+            self.handle_message(msg)
+        except Exception as e:
+            self.logger.error(f"Erreur lors du traitement du message MQTT: {e}")
+            self.logger.debug(traceback.format_exc())
+
+    def handle_message(self, msg):
+        """Traite un message reçu de manière synchrone."""
+        try:
             # Décodage du message
             payload_data = msg.payload.decode("utf-8").strip()
-            # Remplacement des guillemets simples par des guillemets doubles
             if payload_data.startswith("{") and "'" in payload_data:
                 payload_data = payload_data.replace("'", '"')
 
             message = json.loads(payload_data)
-            print(f"Message reçu sur le topic {msg.topic}: {message}")
+            if self.is_debug:
+                self.logger.debug(f"Message reçu sur le topic {msg.topic}: {message}")
 
             raw_data = message["raw_data"]
 
             # Identification et traitement du paquet
             packet_type = raw_data[2:6]  # Ex: AP00, AP01, etc.
             processor_method = getattr(self.packet_processor, f"extract_{packet_type.lower()}_data", None)
-            print("La méthode est :", processor_method)
+
+            if self.is_debug:
+                self.logger.debug(f"Processeur pour {packet_type}: {processor_method}")
 
             if processor_method:
                 # Appel de la méthode de traitement
@@ -72,29 +67,33 @@ class MqttConsumer:
                     "updated_at": message['updated_at']
                 }
 
-                print(f"Données extraites : {json.dumps(extracted_data, indent=2)}")
+                if self.is_debug:
+                    self.logger.info(f"Données extraites: {json.dumps(extracted_data, indent=2)}")
 
-                # Stockage dans MongoDB
-                collection_name = packet_type.lower()  # Ex : "ap00"
+                # Stockage dans MongoDB de manière synchrone
                 self.mongodb_helper.insert_data('health_data', extracted_data)
             else:
-                print(f"Aucun processeur trouvé pour le type de paquet : {packet_type}")
+                self.logger.warning(f"Aucun processeur trouvé pour le type de paquet : {packet_type}")
 
         except Exception as e:
-            print(f"Erreur lors du traitement du message MQTT : {e}")
-            traceback.print_exc()
+            self.logger.error(f"Erreur lors du traitement du message MQTT: {e}")
+            self.logger.debug(traceback.format_exc())
 
     def start(self):
         """Démarre le consommateur MQTT."""
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
-        print("Connexion au broker MQTT...")
+        self.logger.info("Connexion au broker MQTT...")
         self.client.connect(self.broker_address, self.port)
+
+        # Démarrer la boucle MQTT de manière synchrone
         self.client.loop_start()
 
-    async def stop(self):
+    def stop(self):
+        """Arrête le consommateur MQTT proprement."""
         if self.client:
-            self.client.loop_stop()
+            self.logger.info("Déconnexion du broker MQTT...")
             self.client.disconnect()
-            print("Consommateur MQTT arrêté.")
+            self.client.loop_stop()
+            self.logger.info("Consommateur MQTT arrêté.")

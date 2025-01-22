@@ -25,46 +25,78 @@ x-kafka-broker-common: &kafka-broker-common
     - "host.docker.internal:host-gateway"
 
 services:
-  app:
-    build: .
-    volumes:
-      - .:/app
-    ports:
-      - "5000:5000"
-    environment:
-      - DATABASE_URL=postgres://user:password@db:5432/mydatabase
-    depends_on:
-      - db
-
-#    tcp_server:
-#        build:
-#            context: .
-#            dockerfile: .docker/python/Dockerfile
-#        container_name: tcp_server
-#        ports:
-#            - "6020:6020"  # Port pour votre serveur TCP
-#        volumes:
-#            - ./src:/app
-#        environment:
-#            - TCP_HOST=0.0.0.0
-#            - TCP_PORT=6020
-#            - KAFKA_BROKERS=broker-1:9092,broker-2:9093,broker-3:9094
-#            - MONGO_URI=mongodb://mongo:27017
-#        depends_on:
-#            - kafka
-#            - mongo
-#        restart: always
+    tcp_server:
+        build:
+          context: .
+          dockerfile: .docker/python/Dockerfile
+        image: tcpserver-health
+        container_name: tcp_server
+        ports:
+          - "6020:6020"
+        volumes:
+          - ./src:/app
+        env_file:
+            - .env
+        environment:
+          - TCP_HOST=0.0.0.0
+          - TCP_PORT=6020
+          - MONGO_URI=${MONGO_URI}
+        depends_on:
+          - mqtt-broker
+          - mongodb
+        restart: always
 
     mqtt-broker:
         image: eclipse-mosquitto:2.0.15
         container_name: mqtt-broker
         ports:
-            - "1883:1883" # Port MQTT standard
+            - "1883:1883"
         volumes:
             - ./.docker/mosquitto/config:/mosquitto/config
             - ./mosquitto/data:/mosquitto/data
             - ./mosquitto/log:/mosquitto/log
         restart: always
+
+    mongodb:
+        image: mongo:latest
+        container_name: mongodb
+        hostname: mongodb
+        volumes:
+            - ./.docker/mongodb/initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+            - mongodb-data:/data/db/
+            - mongodb-log:/var/log/mongodb/
+        env_file:
+            - .env
+        environment:
+            MONGO_INITDB_DATABASE: "${MONGO_DB}"
+            MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+            MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+            MONGO_URI: "${MONGO_URI}"
+        ports:
+            - "${MONGODB_PORT}:${MONGODB_PORT}"
+        healthcheck:
+            test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    mongo-express:
+        image: mongo-express:latest
+        container_name: mongo-express
+        #        restart: always
+        env_file:
+            - .env
+        environment:
+            ME_CONFIG_MONGODB_ADMINUSERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+            ME_CONFIG_MONGODB_ADMINPASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+            ME_CONFIG_MONGODB_PORT: ${MONGODB_PORT}
+            ME_CONFIG_MONGODB_URL: "${ME_CONFIG_MONGODB_SERVER}"
+            ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME}
+            ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
+        ports:
+            - "${MONGO_EXPRESS_PORT}:${MONGO_EXPRESS_PORT}"
+        depends_on:
+            - mongodb
 
 #    broker-1:
 #        <<: *kafka-broker-common
@@ -150,60 +182,6 @@ services:
 #            - broker-1
 #            - broker-2
 #            - broker-3
-
-    mongodb:
-        image: mongo:latest
-        container_name: mongodb
-        hostname: mongodb
-        volumes:
-          - ./.docker/mongodb/initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-          - mongodb-data:/data/db/
-          - mongodb-log:/var/log/mongodb/
-        env_file:
-          - .env
-        environment:
-          MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-          MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-        ports:
-          - "${MONGODB_PORT}:${MONGODB_PORT}"
-#        networks:
-#          - mongodb_network
-        healthcheck:
-            test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
-            interval: 10s
-            timeout: 5s
-            retries: 5
-
-    mongo-express:
-        image: mongo-express:latest
-        container_name: mongo-express
-        restart: always
-        env_file:
-            - .env
-        environment:
-            ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-            ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-            ME_CONFIG_MONGODB_PORT: ${MONGODB_PORT}
-            ME_CONFIG_MONGODB_URL: ${ME_CONFIG_MONGODB_SERVER}
-            ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME}
-            ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
-        ports:
-            - "${MONGO_EXPRESS_PORT}:${MONGO_EXPRESS_PORT}"
-#        networks:
-#            - mongodb_network
-        depends_on:
-            - mongodb
-
-#    consumer:
-#        build:
-#            context: .
-#            dockerfile: .docker/python/Dockerfile
-#        volumes:
-#            - ./src:/app
-#        command: python /app/consumer.py
-#        depends_on:
-#            - kafka_custom
-
 
 volumes:
     broker_1_data:

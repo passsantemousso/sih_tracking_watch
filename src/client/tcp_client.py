@@ -74,6 +74,7 @@ def send_messages_to_server_with_delay(messages: list, delay: int = 5):
 
             for message in messages:
                 try:
+                    logging.info(f"{message}")
                     client_socket.sendall(message.encode())
                     response = client_socket.recv(1024).decode()
                     if response:
@@ -99,7 +100,7 @@ def send_messages_to_server_with_delay(messages: list, delay: int = 5):
 def main():
     """Processus principal pour envoyer les messages."""
     MESSAGE_DELAY = 10  # Latence entre chaque message (en secondes)
-    CYCLE_DELAY = 180  # Délai entre chaque cycle d'envoi (en secondes)
+    CYCLE_DELAY = 120  # Délai entre chaque cycle d'envoi (en secondes)
 
     logging.info("Démarrage du client TCP...")
 
@@ -114,7 +115,7 @@ def main():
     while True:
         try:
             logging.info("Début de l'envoi des messages...")
-            message_list = list(messages_device.values())  # Créer une liste de messages
+            message_list = list(messages_device.values())
 
             client_socket = reconnect()
             if client_socket:  # Si la reconnexion réussit
