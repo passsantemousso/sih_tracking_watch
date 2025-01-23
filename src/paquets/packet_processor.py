@@ -498,7 +498,7 @@ class PacketProcessor:
         try:
             if message:
                 # Extraire le type de commande (les 4 premiers caractères)
-                command_type = message[:4] if len(message) >= 4 else "UNKNOWN"
+                command_type = message[2:6] if len(message) >= 4 else "UNKNOWN"
                 raw_data = {
                     "command_type": command_type,
                     "raw_data": message,

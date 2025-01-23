@@ -1,12 +1,12 @@
 import paho.mqtt.client as mqtt
 
 # Callback lorsque la connexion au broker est réussie
-def on_connect(client, userdata, flags, rc):
+def on_connect(client_id, userdata, flags, rc):
     print(f"Connecté au broker avec le code de retour {rc}")
     client.subscribe("health_data_topic")  # S'abonner au topic
 
 # Callback lorsque le client reçoit un message
-def on_message(client, userdata, msg):
+def on_message(client_id, userdata, msg):
     print(f"Message reçu sur le topic {msg.topic}: {msg.payload.decode()}")
 
 # Configuration du client MQTT

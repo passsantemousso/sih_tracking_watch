@@ -74,6 +74,7 @@ services:
             MONGO_URI: "${MONGO_URI}"
         ports:
             - "${MONGODB_PORT}:${MONGODB_PORT}"
+        restart: always
         healthcheck:
             test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
             interval: 10s
@@ -83,7 +84,6 @@ services:
     mongo-express:
         image: mongo-express:latest
         container_name: mongo-express
-        #        restart: always
         env_file:
             - .env
         environment:
@@ -97,6 +97,21 @@ services:
             - "${MONGO_EXPRESS_PORT}:${MONGO_EXPRESS_PORT}"
         depends_on:
             - mongodb
+        restart: always
+
+    api-web:
+        build:
+            context: .
+            dockerfile: .docker/fast_api/Dockerfile
+        image: api-web-health
+        container_name: api-web
+        ports:
+            - "8000:80"
+        volumes:
+            - ./api:/app
+        env_file:
+            - .env
+
 
 #    broker-1:
 #        <<: *kafka-broker-common
