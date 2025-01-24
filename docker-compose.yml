@@ -28,13 +28,13 @@ services:
     tcp_server:
         build:
           context: .
-          dockerfile: .docker/python/Dockerfile
-        image: tcpserver-health
+          dockerfile: ./.docker/python/Dockerfile
+        image: tcp-server-health
         container_name: tcp_server
         ports:
           - "6020:6020"
         volumes:
-          - ./src:/app
+          - ./src:/src
         env_file:
             - .env
         environment:
@@ -53,8 +53,8 @@ services:
             - "1883:1883"
         volumes:
             - ./.docker/mosquitto/config:/mosquitto/config
-            - ./mosquitto/data:/mosquitto/data
-            - ./mosquitto/log:/mosquitto/log
+            - mosquitto_data:/mosquitto/data
+            - mosquitto_log:/mosquitto/log
         restart: always
 
     mongodb:
@@ -68,7 +68,7 @@ services:
         env_file:
             - .env
         environment:
-            MONGO_INITDB_DATABASE: "${MONGO_DB}"
+            MONGO_INITDB_DATABASE: "${MONGO_DB_NAME}"
             MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
             MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
             MONGO_URI: "${MONGO_URI}"
@@ -89,10 +89,10 @@ services:
         environment:
             ME_CONFIG_MONGODB_ADMINUSERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
             ME_CONFIG_MONGODB_ADMINPASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
-            ME_CONFIG_MONGODB_PORT: ${MONGODB_PORT}
+            ME_CONFIG_MONGODB_PORT: "${MONGODB_PORT}"
             ME_CONFIG_MONGODB_URL: "${ME_CONFIG_MONGODB_SERVER}"
-            ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME}
-            ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
+            ME_CONFIG_BASICAUTH_USERNAME: "${MONGO_EXPRESS_USERNAME}"
+            ME_CONFIG_BASICAUTH_PASSWORD: "${MONGO_EXPRESS_PASSWORD}"
         ports:
             - "${MONGO_EXPRESS_PORT}:${MONGO_EXPRESS_PORT}"
         depends_on:
@@ -102,15 +102,18 @@ services:
     api-web:
         build:
             context: .
-            dockerfile: .docker/fast_api/Dockerfile
+            dockerfile: ./.docker/fast_api/Dockerfile
         image: api-web-health
         container_name: api-web
         ports:
             - "8000:80"
         volumes:
-            - ./api:/app
+            - ./src:/src
         env_file:
             - .env
+        depends_on:
+            - mongodb
+        restart: always
 
 
 #    broker-1:
@@ -199,15 +202,21 @@ services:
 #            - broker-3
 
 volumes:
-    broker_1_data:
-        driver: local
-    broker_2_data:
-        driver: local
-    broker_3_data:
-        driver: local
+#    broker_1_data:
+#        driver: local
+#    broker_2_data:
+#        driver: local
+#    broker_3_data:
+#        driver: local
     mongodb-data:
         driver: local
         name: mongo-data
     mongodb-log:
         driver: local
         name: mongo-log
+    mosquitto_data:
+        driver: local
+        name: mosquitto_log
+    mosquitto_log:
+        driver: local
+        name: mosquitto_log

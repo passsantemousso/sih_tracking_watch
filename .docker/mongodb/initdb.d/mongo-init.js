@@ -1,7 +1,7 @@
 db = db.getSiblingDB("health_watch_data_db"); // Nom de la base de données
 
 db.createUser({
-    user: "root",
+    user: "admin",
     pwd: "Admin123",
     roles: [
       {

@@ -1,4 +1,4 @@
-# Utiliser l'image officielle de Python 3.12
+# Utiliser l'image officielle de Python 3.11
 FROM python:3.11-slim
 
 # Mettre à jour l'image et installer les dépendances de base
@@ -17,14 +17,17 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copier les fichiers nécessaires dans le conteneur
-COPY ./src /app
+COPY ./tcp_server /app
 
 # Copier les fichiers nécessaires
-COPY requirements.txt .
+COPY ./tcp_server/requirements.txt /app/requirements.txt
 
 # Installer les dépendances
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r /app/requirements.txt
+
+# Définir PYTHONPATH
+ENV PYTHONPATH=/app
 
 # Exposer le port utilisé par votre serveur TCP
 EXPOSE 6020

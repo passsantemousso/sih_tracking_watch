@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from app.api.devices import router as devices_router
+from fastapi import FastAPI
+from src.api.devices import router as devices_router
 
 app = FastAPI()
 
@@ -9,7 +9,7 @@ async def read_root():
 
 # Inclure les routes de l'API
 app.include_router(devices_router, prefix="/devices", tags=["devices"])
-# app.include_router(users_router, prefix="/users", tags=["users"])
+# src.include_router(users_router, prefix="/users", tags=["users"])
 
 
 
