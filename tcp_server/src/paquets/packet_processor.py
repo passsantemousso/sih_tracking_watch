@@ -502,8 +502,8 @@ class PacketProcessor:
                 raw_data = {
                     "command_type": command_type,
                     "raw_data": message,
-                    "created_at" : datetime.now(timezone.utc).isoformat(),
-                    "updated_at" : datetime.now(timezone.utc).isoformat()
+                    "created_at" : datetime.now(timezone.utc),
+                    "updated_at" : datetime.now(timezone.utc)
                 }
                 return raw_data
             else:
