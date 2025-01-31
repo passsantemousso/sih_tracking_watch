@@ -44,14 +44,15 @@ async def get_latest_device(
     """
     return await device_service.get_latest_device(imei, command_type)
 
+@router.get("/all", response_model=list[Device])
+async def list_devices():
+     return await device_service.get_all_devices()
 
 @router.get("/{device_id}", response_model=Device)
 async def get_device(device_id: str):
     return await device_service.get_device(device_id)
 
-@router.get("/all", response_model=list[Device])
-async def list_devices():
-     return await device_service.get_all_devices()
+
 
 
 
