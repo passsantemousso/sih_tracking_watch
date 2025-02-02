@@ -36,7 +36,11 @@ class TCPServerAsync:
                     self.logger.info(f"Connexion fermée par le client : {client_address}")
                     break
 
-                message = data.decode('utf-8').strip()
+                try:
+                    message = data.decode("utf-8", errors='replace').strip()
+                except UnicodeDecodeError as e:
+                    self.logger.error(f"Erreur d'encodage: {e}")
+                    return
 
                 # Journalisation conditionnelle pour les données reçues
                 if self.is_debug:

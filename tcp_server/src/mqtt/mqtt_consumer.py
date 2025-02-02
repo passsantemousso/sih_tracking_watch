@@ -42,12 +42,26 @@ class MqttConsumer:
         try:
             # Décodage du message
             payload_data = msg.payload.decode("utf-8").strip()
+
+            if not payload_data:
+                self.logger.error("Le message est vide.")
+                return
+
             if payload_data.startswith("{") and "'" in payload_data:
                 payload_data = payload_data.replace("'", '"')
 
-            message = json.loads(payload_data)
+            try:
+                message = json.loads(payload_data)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Erreur de décodage JSON: {e} - Message: {payload_data}")
+                return
+
             if self.is_debug:
                 self.logger.debug(f"Message reçu sur le topic {msg.topic}: {message}")
+
+            if "raw_data" not in message:
+                self.logger.error(f"Clé 'raw_data' manquante dans le message : {message}")
+                return
 
             raw_data = message["raw_data"]
 
