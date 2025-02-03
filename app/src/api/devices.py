@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Query, Depends
-from src.models.device import Device
+from src.models.device import Device, CommandType
 from src.services.device_service import DeviceService
 from src.db.repositories.device_repo import DeviceRepository
 
@@ -20,7 +20,7 @@ device_service = DeviceService(DeviceRepository())
 async def search_devices(
     imei: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
-    command_type: Optional[str] = Query(None),
+    command_type: Optional[CommandType] = Query(None),
     created_at_start: Optional[str] = Query(None, description="Format: DD-MM-YYYY"),
     created_at_end: Optional[str] = Query(None, description="Format: DD-MM-YYYY"),
     limit: int = Query(100, ge=1),

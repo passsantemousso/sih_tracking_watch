@@ -1,6 +1,7 @@
 from typing import Optional, Union, Dict, Any
 from pydantic import BaseModel, Field
 from src.utils.custom_types import PydanticObjectId
+from enum import Enum
 
 
 # Modèle pour le champ `data`
@@ -99,3 +100,16 @@ class Device(BaseModel):
             # raise ValueError("Invalid data format. Expected a Pydantic model.")
             return {**base_fields, "data": None}
 
+
+class CommandType(str, Enum):
+    AP01 = "AP01"
+    AP02 = "AP02"
+    AP03 = "AP03"
+    AP04 = "AP04"
+    AP05 = "AP05"
+    AP16 = "AP16"
+    AP49 = "AP49"
+    AP50 = "AP50"
+    AP97 = "AP97"
+    APHT = "APHT"
+    APHP = "APHP"
