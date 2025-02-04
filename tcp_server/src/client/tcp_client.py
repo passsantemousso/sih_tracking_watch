@@ -84,7 +84,7 @@ def send_messages_to_server_with_delay(messages: list, delay: int = 5):
                         logging.warning("Réponse vide du serveur")
                 except socket.error as e:
                     logging.error(f"Erreur lors de l'envoi du message {message}: {e}")
-                    break  # Quitter la boucle si une erreur survient
+                    continue  # Quitter la boucle si une erreur survient
 
                 time.sleep(delay)
     except socket.timeout:

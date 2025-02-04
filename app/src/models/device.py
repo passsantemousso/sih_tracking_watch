@@ -107,7 +107,7 @@ class Device(BaseModel):
     imei: str
     model: str
     command_type: str
-    data: Union[DataAP01 | DataAP03 | DataAP49 | DataAPHT | DataAP50 | DataAP97]
+    data: Union[DataAP01 | DataAP03 | DataAP49 | DataAPHT | DataAPHP | DataAP50 | DataAP97]
     created_at: str
     updated_at: str
 
