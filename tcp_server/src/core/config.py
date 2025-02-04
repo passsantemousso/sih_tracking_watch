@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     MQTT_BROKER: str = os.getenv("MQTT_BROKER", "localhost")
     MQTT_TOPIC: str = os.getenv("MQTT_TOPIC", "tracking_watch_data")
 
+    IGNORED_MESSAGES: tuple = ("IWAP02", "IWAP03", "IWAP07", "IWAPHT", "IWAP50")
+
 settings = Settings()
 
 

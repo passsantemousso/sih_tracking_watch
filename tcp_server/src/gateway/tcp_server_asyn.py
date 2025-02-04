@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 import logging
+from ..core.config import settings
 
 
 class TCPServerAsync:
@@ -67,6 +68,9 @@ class TCPServerAsync:
                             if self.is_debug:
                                 self.logger.debug(f"Réponse envoyée à {client_address[0]} : {response}")
                     continue  # Passer au prochain paquet sans traitement
+
+                if message.startswith(settings.IGNORED_MESSAGES):
+                    continue
 
                 if not imei:
                     self.logger.warning(f"Aucun IMEI trouvé pour {client_address}")
