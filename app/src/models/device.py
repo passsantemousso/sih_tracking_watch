@@ -1,4 +1,4 @@
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, List
 from pydantic import BaseModel, Field
 from src.utils.custom_types import PydanticObjectId
 from enum import Enum
@@ -32,6 +32,46 @@ class DataAPHP(BaseModel):
     spo2: Optional[int] = None
     blood_sugar: Optional[int] = None
     temperature: Optional[Union[float, str]] = None
+
+class GPSData(BaseModel):
+    latitude: Optional[str] = None
+    latitude_direction: Optional[str] = None
+    longitude: Optional[str] = None
+    longitude_direction: Optional[str] = None
+    speed: Optional[str] = None
+    gmt_time: Optional[str] = None
+    direction_angle: Optional[str] = None
+
+class StatusData(BaseModel):
+    gsm_signal: Optional[int] = None
+    satellites: Optional[int] = None
+    battery_level: Optional[int] = None
+    remaining_space: Optional[int] = None
+    fortification_state: Optional[int] = None
+    working_mode: Optional[int] = None
+
+class BluetoothDevice(BaseModel):
+    name: Optional[str] = None
+    mac: Optional[str] = None
+    signal_strength: Optional[int] = None
+
+class LBSData(BaseModel):
+    mcc: Optional[int] = None
+    mnc: Optional[int] = None
+    lac: Optional[int] = None
+    cid: Optional[int] = None
+
+class WiFiData(BaseModel):
+    ssid: Optional[str] = None
+    mac: Optional[str] = None
+    signal_strength: Optional[int] = None
+
+class DataAP01(BaseModel):
+    gps: Optional[GPSData] = None
+    status: Optional[StatusData] = None
+    bluetooth: List[BluetoothDevice] = []
+    lbs: List[LBSData] = []
+    wifi: List[WiFiData] = []
 
 class DataAP03(BaseModel):
     gsm_signal: Optional[str] = None
@@ -67,7 +107,7 @@ class Device(BaseModel):
     imei: str
     model: str
     command_type: str
-    data: Union[DataAPHP | DataAP03 | DataAP49 | DataAPHT | DataAP50 | DataAP97]
+    data: Union[DataAP01 | DataAP03 | DataAP49 | DataAPHT | DataAP50 | DataAP97]
     created_at: str
     updated_at: str
 
