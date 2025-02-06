@@ -24,6 +24,8 @@ async def search_devices(
     created_at_start: Optional[str] = Query(None, description="Format: DD-MM-YYYY"),
     created_at_end: Optional[str] = Query(None, description="Format: DD-MM-YYYY"),
     limit: int = Query(100, ge=1),
+    sort_field: str = Query("created_at", description="Field to sort by"),
+    sort_order: int = Query(-1, description="Sort order: -1 for descending, 1 for ascending")
 ):
     return await device_service.search_devices(
         imei=imei,
@@ -32,6 +34,9 @@ async def search_devices(
         created_at_start=created_at_start,
         created_at_end=created_at_end,
         limit=limit,
+        sort_field=sort_field,
+        sort_order=sort_order
+
     )
 
 @router.get("/latest", response_model=Device)

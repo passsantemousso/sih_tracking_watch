@@ -79,6 +79,8 @@ class DeviceService:
             created_at_start: Optional[str] = None,
             created_at_end: Optional[str] = None,
             limit: int = 100,
+            sort_field: str = "created_at",
+            sort_order: int = -1
     ) -> List[Dict[str, Any]]:
 
         start_date = self.parse_date(created_at_start)
@@ -93,6 +95,8 @@ class DeviceService:
                 created_at_start=start_date,
                 created_at_end=end_date,
                 limit=limit,
+                sort_field=sort_field,
+                sort_order=sort_order
             )
 
             # Processus de filtrage

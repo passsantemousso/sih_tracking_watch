@@ -29,7 +29,7 @@ class DeviceRepository:
 
     async def get_all(self, limit: int = 100) -> list[Device]:
         devices = []
-        async for device in self.collection.find().limit(limit):
+        async for device in self.collection.find().sort("created_at", -1).limit(limit):
             device["id"] = str(device["_id"])
             devices.append(Device(**device))
         return devices
@@ -40,7 +40,10 @@ class DeviceRepository:
             command_type: str = None,
             created_at_start: str = None,
             created_at_end: str = None,
-            limit: int = 100) -> list[Device]:
+            limit: int = 100,
+            sort_field: str = "created_at",  # Le champ de tri, par défaut "created_at"
+            sort_order: int = -1  # 1 pour croissant, -1 pour décroissant (par défaut décroissant)
+    ) -> list[Device]:
 
         query = {}
 
@@ -59,7 +62,7 @@ class DeviceRepository:
                 query["created_at"]["$lte"] = created_at_end.isoformat()
 
         devices = []
-        async for device in self.collection.find(query).limit(limit):
+        async for device in self.collection.find(query).sort(sort_field, sort_order).limit(limit):
             device["id"] = str(device["_id"])
             devices.append(Device(**device))
 
