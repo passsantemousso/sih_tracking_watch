@@ -41,7 +41,7 @@ class TCPServerAsync:
                     message = data.decode("utf-8", errors='replace').strip()
                 except UnicodeDecodeError as e:
                     self.logger.error(f"Erreur d'encodage: {e}")
-                    return
+                    break  # Fermer la connexion si l'encodage échoue
 
                 # Journalisation conditionnelle pour les données reçues
                 if self.is_debug:
@@ -95,8 +95,12 @@ class TCPServerAsync:
             self.logger.error(f"Erreur avec {client_address}: {e}", exc_info=True)
         finally:
             self.logger.info(f"Fermeture de la connexion avec {client_address}")
-            client_writer.close()
-            await client_writer.wait_closed()
+            try:
+                client_writer.close()
+                await client_writer.wait_closed()
+            except Exception as e:
+                self.logger.error(f"Erreur lors de la fermeture de la connexion avec {client_address}: {e}",
+                                  exc_info=True)
 
     async def start(self):
         try:
