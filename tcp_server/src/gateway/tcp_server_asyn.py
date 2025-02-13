@@ -1,11 +1,15 @@
 import asyncio
 from datetime import datetime, timezone
 import logging
+
+from ..commands.watch_command import WatchCommandService
 from ..core.config import settings
+
+INACTIVITY_TIMEOUT = 300
 
 
 class TCPServerAsync:
-    def __init__(self, mqtt_handler, packet_processor, host='0.0.0.0', port=6020, buffer_size=1024, is_debug=False):
+    def __init__(self, mqtt_handler, packet_processor, host='0.0.0.0', port=6020, buffer_size=1024, is_debug=True):
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initialisation de TCPServer")
 
@@ -17,12 +21,24 @@ class TCPServerAsync:
         self.server = None
         self.device_map = {}  # Dictionnaire pour associer (IP, port) à IMEI
         self.is_debug = is_debug
+        self.command_service = WatchCommandService()
 
     @staticmethod
     def extract_imei(message):
         """Extrait l'IMEI d'un paquet AP00."""
         imei = message[6:-1]
         return imei if imei else None
+
+    @staticmethod
+    def to_unicode_hex(text: str) -> str:
+        """
+        Convertit un texte en une chaîne unicode hex format
+        """
+        return "".join(f"{ord(c):04x}" for c in text)
+
+    @staticmethod
+    def generate_journal_no_datetime() -> str:
+        return datetime.now().strftime("%Y%m%d%H%M%S")
 
     async def handle_client(self, client_reader, client_writer):
         client_address = client_writer.get_extra_info('peername')
@@ -32,8 +48,18 @@ class TCPServerAsync:
 
         try:
             while True:
-                data = await client_reader.read(self.buffer_size)
+                try:
+                    # Lecture avec timeout d'inactivité
+                    data = await asyncio.wait_for(
+                        client_reader.read(self.buffer_size),
+                        timeout=INACTIVITY_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.warning(f"Inactivité prolongée : fermeture de la connexion avec {client_address}")
+                    break
+
                 if not data:
+                    # Fermeture du flux par le client
                     self.logger.info(f"Connexion fermée par le client : {client_address}")
                     break
 
@@ -51,7 +77,11 @@ class TCPServerAsync:
                 if message.startswith("IWAP") and "AP00" in message:
                     imei = self.extract_imei(message)
 
+                    # Vérifier si c'est la première connexion pour cet IMEI
+                    is_first_connection = False
+
                     if imei and imei not in self.device_map:
+                        is_first_connection = True
                         self.device_map[imei] = {"last_address": client_address}
                         if self.is_debug:
                             self.logger.debug(f"IMEI {imei} associé à {client_address}")
@@ -67,13 +97,29 @@ class TCPServerAsync:
                             await client_writer.drain()
                             if self.is_debug:
                                 self.logger.debug(f"Réponse envoyée à {client_address[0]} : {response}")
+
+                        if is_first_connection:
+                            # Convertissez votre texte en UNICODE hex selon la notice si nécessaire
+                            text_unicode = "Hello Watch PSM!"
+                            # (Il s'agit de "hello watch!" en Unicode hex)
+
+                            command_str = self.command_service.send_text_message(
+                                imei=imei,
+                                text_unicode=text_unicode
+                            )
+                            self.logger.info(f"Envoi d'un message texte à {imei}: {command_str}")
+
+                            # Écrire la commande sur la socket
+                            client_writer.write(command_str.encode('utf-8'))
+                            await client_writer.drain()
+
                     continue  # Passer au prochain paquet sans traitement
 
                 if message.startswith(settings.IGNORED_MESSAGES):
                     continue
 
                 if not imei:
-                    self.logger.warning(f"Aucun IMEI trouvé pour {client_address}")
+                    self.logger.warning(f"Aucun IMEsI trouvé pour {client_address}")
                     break
 
                 # Traitement des données
