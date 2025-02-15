@@ -18,8 +18,9 @@ class DeviceRepository:
         self.logger = logging.getLogger(__name__)
         self.is_debug = is_debug
         self.db = mongo_helper.db
-        self.collection = os.getenv("MONGO_COLLECTION_DEVICE")
+        self.collection_name = os.getenv("MONGO_COLLECTION_DEVICE")
         self.ensure_collection_exists()
+        self.devices_collection = self.db[self.collection_name]
 
 
     def ensure_collection_exists(self):
@@ -28,7 +29,7 @@ class DeviceRepository:
         """
         try:
             if "devices" not in self.db.list_collection_names():
-                self.db.create_collection("devices")
+                self.db.create_collection(self.collection_name)
                 self.logger.info("Collection 'devices' créée dans MongoDB.")
             else:
                 self.logger.info("Collection 'devices' déjà existante.")
@@ -44,7 +45,7 @@ class DeviceRepository:
             dict ou None: Document Mongo correspondant ou None s'il n'existe pas.
         """
         try:
-            return self.collection.find_one({"imei": imei})
+            return self.devices_collection.find_one({"imei": imei})
         except Exception as e:
             self.logger.error(f"Erreur lors de la recherche du device pour l'IMEI {imei} : {e}", exc_info=self.is_debug)
             return None
@@ -62,7 +63,7 @@ class DeviceRepository:
                 "last_address": address,
                 "created_at": datetime.now(timezone.utc)
             }
-            self.collection.insert_one(doc)
+            self.devices_collection.insert_one(doc)
             if self.is_debug:
                 self.logger.debug(f"Nouvelle montre insérée : {doc}")
         except Exception as e:
@@ -76,7 +77,7 @@ class DeviceRepository:
             address (tuple): nouvelle adresse (IP, port).
         """
         try:
-            self.collection.update_one(
+            self.devices_collection.update_one(
                 {"imei": imei},
                 {
                     "$set": {
@@ -96,7 +97,7 @@ class DeviceRepository:
         """
         disconnection_time = disconnection_time or datetime.now(timezone.utc)
         try:
-            self.collection.update_one(
+            self.devices_collection.update_one(
                 {"imei": imei},
                 {"$set": {"last_disconnection": disconnection_time}}
             )
