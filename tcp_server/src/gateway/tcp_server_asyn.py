@@ -109,7 +109,7 @@ class TCPServerAsync:
                                         text_unicode=text_unicode
                                     )
                                     self.logger.info(
-                                        f"Envoi du paquet spécial à {imei} car déconnexion > 1h : {command_str}")
+                                        f"Envoi du paquet spécial à {imei} car déconnexion > 1h")
                                     client_writer.write(command_str.encode('utf-8'))
                                     await client_writer.drain()
 
