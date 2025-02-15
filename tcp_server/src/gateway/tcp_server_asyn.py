@@ -117,7 +117,6 @@ class TCPServerAsync:
                             self.device_repository.update_device_address(imei, client_address)
 
                         # Réponse avec le paquet BP00
-                        current_time = datetime.now(timezone.utc)
                         server_time = current_time.strftime("%Y%m%d%H%M%S")
                         timezone_offset = current_time.utcoffset().total_seconds() // 3600  # Décalage en heures
                         response = f"IWBP00,{server_time},{int(timezone_offset)}#"

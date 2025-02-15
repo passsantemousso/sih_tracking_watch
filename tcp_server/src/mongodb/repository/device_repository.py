@@ -82,7 +82,7 @@ class DeviceRepository:
                 {
                     "$set": {
                         "last_address": address,
-                        "updated_at": datetime.utcnow()
+                        "updated_at": datetime.now(timezone.utc)
                     }
                 }
             )
