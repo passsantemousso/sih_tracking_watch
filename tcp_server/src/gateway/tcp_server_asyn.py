@@ -48,6 +48,7 @@ class TCPServerAsync:
 
         try:
             while True:
+                is_first_connection = False
                 try:
                     # Lecture avec timeout d'inactivité
                     data = await asyncio.wait_for(
@@ -76,13 +77,12 @@ class TCPServerAsync:
                 # Si c'est un paquet AP00 contenant l'IMEI, on l'associe
                 if message.startswith("IWAP") and "AP00" in message:
                     imei = self.extract_imei(message)
-
-                    # Vérifier si c'est la première connexion pour cet IMEI
-                    is_first_connection = False
+                    self.logger.debug(f"Liste IMEI associé à {self.device_map}")
 
                     if imei and imei not in self.device_map:
                         is_first_connection = True
                         self.device_map[imei] = {"last_address": client_address}
+
                         if self.is_debug:
                             self.logger.debug(f"IMEI {imei} associé à {client_address}")
 
@@ -95,23 +95,24 @@ class TCPServerAsync:
                         if response:
                             client_writer.write(response.encode('utf-8'))
                             await client_writer.drain()
+
                             if self.is_debug:
                                 self.logger.debug(f"Réponse envoyée à {client_address[0]} : {response}")
 
-                        if is_first_connection:
-                            # Convertissez votre texte en UNICODE hex selon la notice si nécessaire
-                            text_unicode = "Hello Watch PSM!"
-                            # (Il s'agit de "hello watch!" en Unicode hex)
+                    if is_first_connection:
+                        # Convertissez votre texte en UNICODE hex selon la notice si nécessaire
+                        text_unicode = "Hello Watch PSM!"
+                        # (Il s'agit de "hello watch!" en Unicode hex)
 
-                            command_str = self.command_service.send_text_message(
-                                imei=imei,
-                                text_unicode=text_unicode
-                            )
-                            self.logger.info(f"Envoi d'un message texte à {imei}: {command_str}")
+                        command_str = self.command_service.send_text_message(
+                            imei=imei,
+                            text_unicode=text_unicode
+                        )
+                        self.logger.info(f"Envoi d'un message texte à {imei}: {command_str}")
 
-                            # Écrire la commande sur la socket
-                            client_writer.write(command_str.encode('utf-8'))
-                            await client_writer.drain()
+                        # Écrire la commande sur la socket
+                        client_writer.write(command_str.encode('utf-8'))
+                        await client_writer.drain()
 
                     continue  # Passer au prochain paquet sans traitement
 
@@ -119,7 +120,7 @@ class TCPServerAsync:
                     continue
 
                 if not imei:
-                    self.logger.warning(f"Aucun IMEsI trouvé pour {client_address}")
+                    self.logger.warning(f"Aucun IMEI trouvé pour {client_address}")
                     break
 
                 # Traitement des données
