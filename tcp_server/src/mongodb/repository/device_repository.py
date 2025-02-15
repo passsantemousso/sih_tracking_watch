@@ -1,7 +1,11 @@
 # device_repository.py
-
+import os
 import logging
 from datetime import datetime, timezone
+
+from src.utils.utils import check_docker_run
+
+check_docker_run()
 
 class DeviceRepository:
     def __init__(self, mongo_helper, is_debug=False):
@@ -14,8 +18,9 @@ class DeviceRepository:
         self.logger = logging.getLogger(__name__)
         self.is_debug = is_debug
         self.db = mongo_helper.db
-        self.collection = self.db["devices"]
+        self.collection = os.getenv("MONGO_COLLECTION_DEVICE")
         self.ensure_collection_exists()
+
 
     def ensure_collection_exists(self):
         """
@@ -84,3 +89,18 @@ class DeviceRepository:
                 self.logger.debug(f"Mise à jour de l'adresse pour l'IMEI {imei} : {address}")
         except Exception as e:
             self.logger.error(f"Erreur lors de la mise à jour de l'adresse pour l'IMEI {imei} : {e}", exc_info=self.is_debug)
+
+    def update_device_disconnection_time(self, imei, disconnection_time=None):
+        """
+        Met à jour le timestamp de déconnexion pour le device avec l'IMEI donné.
+        """
+        disconnection_time = disconnection_time or datetime.now(timezone.utc)
+        try:
+            self.collection.update_one(
+                {"imei": imei},
+                {"$set": {"last_disconnection": disconnection_time}}
+            )
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la mise à jour du timestamp de déconnexion pour l'IMEI {imei} : {e}",
+                              exc_info=True
+            )

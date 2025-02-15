@@ -28,13 +28,27 @@ async def main():
         mongo_helper.ensure_collection_exists()
         logger.info("Connexion à MongoDB réussie et collection vérifiée")
 
+        # Instanciation du repository pour gérer les devices
+        from src.mongodb.repository.device_repository import DeviceRepository
+        device_repository = DeviceRepository(mongo_helper, is_debug=True)
+
+        # Instanciation du service pour envoyer les commandes vers la montre
+        from src.commands.watch_command import WatchCommandService
+        watch_command_service = WatchCommandService()
+
         consumer = MqttConsumer(mongodb_helper=mongo_helper, packet_processor=packet_processor, is_debug=True)
         mqtt_handler.connect()
 
         # Tâches pour les serveurs
         mqtt_handler_task = asyncio.create_task(mqtt_handler.mqtt_loop(), name="MQTT Loop Task")
         consumer.start()
-        tcp_server = TCPServerAsync(mqtt_handler, packet_processor, is_debug=True)
+        tcp_server = TCPServerAsync(
+            mqtt_handler,
+            packet_processor,
+            device_repository,
+            watch_command_service,
+            is_debug=True
+        )
         tcp_task = asyncio.create_task(tcp_server.start(), name="TCP Task")
 
         logger.info(f"Tâches principales créées : "

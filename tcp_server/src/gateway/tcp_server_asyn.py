@@ -1,27 +1,29 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 
-from ..commands.watch_command import WatchCommandService
 from ..core.config import settings
 
 INACTIVITY_TIMEOUT = 300
 
 
 class TCPServerAsync:
-    def __init__(self, mqtt_handler, packet_processor, host='0.0.0.0', port=6020, buffer_size=1024, is_debug=True):
+    def __init__(self, mqtt_handler, packet_processor, device_repository,
+                 watch_command_service, host='0.0.0.0',
+                 port=6020, buffer_size=1024, is_debug=True):
+
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initialisation de TCPServer")
 
         self.mqtt_handler = mqtt_handler
         self.packet_processor = packet_processor
+        self.device_repository = device_repository
+        self.command_service = watch_command_service
         self.host = host
         self.port = port
         self.buffer_size = buffer_size
         self.server = None
-        self.device_map = {}  # Dictionnaire pour associer (IP, port) à IMEI
         self.is_debug = is_debug
-        self.command_service = WatchCommandService()
 
     @staticmethod
     def extract_imei(message):
@@ -45,6 +47,7 @@ class TCPServerAsync:
         self.logger.info(f"Connexion établie avec {client_address}")
 
         imei = None
+        current_time = datetime.now(timezone.utc)
 
         try:
             while True:
@@ -66,25 +69,52 @@ class TCPServerAsync:
 
                 try:
                     message = data.decode("utf-8", errors='replace').strip()
+                    if not message.startswith("IW"):
+                        self.logger.info(f"Paquet non reconnu : {message}")
+                        break
                 except UnicodeDecodeError as e:
                     self.logger.error(f"Erreur d'encodage: {e}")
                     break  # Fermer la connexion si l'encodage échoue
+
 
                 # Journalisation conditionnelle pour les données reçues
                 if self.is_debug:
                     self.logger.debug(f"Données reçues de {client_address}: {message}")
 
+
                 # Si c'est un paquet AP00 contenant l'IMEI, on l'associe
                 if message.startswith("IWAP") and "AP00" in message:
                     imei = self.extract_imei(message)
-                    self.logger.debug(f"Liste IMEI associé à {self.device_map}")
 
-                    if imei and imei not in self.device_map:
-                        is_first_connection = True
-                        self.device_map[imei] = {"last_address": client_address}
+                    if imei:
+                        device = self.device_repository.find_device_by_imei(imei)
+                        if device is None:
+                            # Première connexion, insertion en base
+                            self.device_repository.save_new_device(imei, client_address)
+                            is_first_connection = True
+                            self.logger.debug(f"IMEI {imei} inséré pour l'adresse {client_address}")
 
-                        if self.is_debug:
-                            self.logger.debug(f"IMEI {imei} associé à {client_address}")
+                            if self.is_debug:
+                                self.logger.debug(f"IMEI {imei} inséré pour l'adresse {client_address}")
+                        else:
+                            # Si le champ 'last_disconnection' existe, vérifier le délai
+                            if "last_disconnection" in device:
+                                last_disconnection = device["last_disconnection"]
+                                # last_disconnection doit être converti en datetime si nécessaire
+                                if current_time - last_disconnection > timedelta(hours=1):
+                                    # Le délai dépasse 1h, on envoie le paquet de notification
+                                    text_unicode = self.to_unicode_hex("Hello Watch PSM!")
+                                    command_str = self.command_service.send_text_message(
+                                        imei=imei,
+                                        text_unicode=text_unicode
+                                    )
+                                    self.logger.info(
+                                        f"Envoi du paquet spécial à {imei} car déconnexion > 1h : {command_str}")
+                                    client_writer.write(command_str.encode('utf-8'))
+                                    await client_writer.drain()
+
+                            # Mise à jour de l'adresse si nécessaire
+                            self.device_repository.update_device_address(imei, client_address)
 
                         # Réponse avec le paquet BP00
                         current_time = datetime.now(timezone.utc)
@@ -148,6 +178,9 @@ class TCPServerAsync:
             except Exception as e:
                 self.logger.error(f"Erreur lors de la fermeture de la connexion avec {client_address}: {e}",
                                   exc_info=True)
+            # Mise à jour du timestamp de déconnexion pour cet IMEI (si identifié)
+            if imei:
+                self.device_repository.update_device_disconnection_time(imei, datetime.now(timezone.utc))
 
     async def start(self):
         try:
