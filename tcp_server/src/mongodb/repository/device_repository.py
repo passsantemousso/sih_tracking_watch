@@ -29,11 +29,12 @@ class DeviceRepository:
         """
         try:
             self.db.create_collection(self.collection_name)
-            self.logger.info("Collection 'devices' créée dans MongoDB.")
+            self.logger.info(f"Collection {self.collection_name} créée dans MongoDB.")
         except CollectionInvalid:
-            self.logger.info("Collection 'devices' déjà existante.")
+            self.logger.info(f"Collection {self.collection_name} déjà existante.")
         except Exception as e:
-            self.logger.error(f"Erreur lors de la vérification/création de la collection 'devices' : {e}", exc_info=self.is_debug)
+            self.logger.error(f"Erreur lors de la vérification/création de la collection {self.collection_name} :"
+                              f"{e}", exc_info=self.is_debug)
 
     def find_device_by_imei(self, imei):
         """
