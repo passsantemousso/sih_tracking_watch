@@ -99,7 +99,7 @@ class TCPServerAsync:
                         else:
                             # Si le champ 'last_disconnection' existe, vérifier le délai
                             if "last_disconnection" in device:
-                                last_disconnection = device["last_disconnection"]
+                                last_disconnection = device["last_disconnection"].replace(tzinfo=timezone.utc)
                                 # last_disconnection doit être converti en datetime si nécessaire
                                 if current_time - last_disconnection > timedelta(hours=1):
                                     # Le délai dépasse 1h, on envoie le paquet de notification
