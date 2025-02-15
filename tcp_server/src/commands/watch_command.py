@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 
 
 class WatchCommandService:
@@ -22,6 +23,11 @@ class WatchCommandService:
     def generate_journal_no_datetime() -> str:
         return datetime.now().strftime("%Y%m%d%H%M%S")
 
+    @staticmethod
+    def generate_journal_no_combined() -> str:
+        date_part = datetime.now().strftime("%Y%m%d%H%M%S")
+        random_part = uuid.uuid4().hex[:4]
+        return f"{date_part}{random_part}"
 
     def set_sos_numbers(self, imei: str, sos1: str, sos2: str, sos3: str) -> str:
         """
