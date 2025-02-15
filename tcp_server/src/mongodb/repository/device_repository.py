@@ -1,0 +1,86 @@
+# device_repository.py
+
+import logging
+from datetime import datetime, timezone
+
+class DeviceRepository:
+    def __init__(self, mongo_helper, is_debug=False):
+        """
+        Initialise le repository avec une instance de MongoDBHelper.
+        Args:
+            mongo_helper (MongoDBHelper): instance déjà configurée pour se connecter à MongoDB.
+            is_debug (bool): Active ou désactive les logs de débogage.
+        """
+        self.logger = logging.getLogger(__name__)
+        self.is_debug = is_debug
+        self.db = mongo_helper.db
+        self.collection = self.db["devices"]
+        self.ensure_collection_exists()
+
+    def ensure_collection_exists(self):
+        """
+        Vérifie que la collection 'devices' existe, sinon la crée.
+        """
+        try:
+            if "devices" not in self.db.list_collection_names():
+                self.db.create_collection("devices")
+                self.logger.info("Collection 'devices' créée dans MongoDB.")
+            else:
+                self.logger.info("Collection 'devices' déjà existante.")
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la vérification/création de la collection 'devices' : {e}", exc_info=self.is_debug)
+
+    def find_device_by_imei(self, imei):
+        """
+        Recherche et retourne le document associé à un IMEI.
+        Args:
+            imei (str): numéro IMEI de la montre.
+        Returns:
+            dict ou None: Document Mongo correspondant ou None s'il n'existe pas.
+        """
+        try:
+            return self.collection.find_one({"imei": imei})
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la recherche du device pour l'IMEI {imei} : {e}", exc_info=self.is_debug)
+            return None
+
+    def save_new_device(self, imei, address):
+        """
+        Enregistre un nouvel enregistrement pour une montre.
+        Args:
+            imei (str): numéro IMEI.
+            address (tuple): adresse du client (IP, port).
+        """
+        try:
+            doc = {
+                "imei": imei,
+                "last_address": address,
+                "created_at": datetime.now(timezone.utc)
+            }
+            self.collection.insert_one(doc)
+            if self.is_debug:
+                self.logger.debug(f"Nouvelle montre insérée : {doc}")
+        except Exception as e:
+            self.logger.error(f"Erreur lors de l'insertion du nouveau device : {e}", exc_info=self.is_debug)
+
+    def update_device_address(self, imei, address):
+        """
+        Met à jour l'adresse de connexion pour une montre existante.
+        Args:
+            imei (str): numéro IMEI.
+            address (tuple): nouvelle adresse (IP, port).
+        """
+        try:
+            self.collection.update_one(
+                {"imei": imei},
+                {
+                    "$set": {
+                        "last_address": address,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            if self.is_debug:
+                self.logger.debug(f"Mise à jour de l'adresse pour l'IMEI {imei} : {address}")
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la mise à jour de l'adresse pour l'IMEI {imei} : {e}", exc_info=self.is_debug)

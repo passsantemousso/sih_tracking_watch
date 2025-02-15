@@ -425,7 +425,7 @@ class PacketProcessor:
                 # Traitement pour AP00 Login package
                 data = self.extract_ap00_data(message)
                 print(f"Données extraites pour AP00 : {data}")
-                server_time = datetime.datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+                server_time = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
                 return f"IWBP00,{server_time},8#"
 
             elif message.startswith("IWAP01"):
