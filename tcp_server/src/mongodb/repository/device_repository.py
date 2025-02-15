@@ -2,7 +2,7 @@
 import os
 import logging
 from datetime import datetime, timezone
-
+from pymongo.errors import CollectionInvalid
 from src.utils.utils import check_docker_run
 
 check_docker_run()
@@ -28,11 +28,10 @@ class DeviceRepository:
         Vérifie que la collection 'devices' existe, sinon la crée.
         """
         try:
-            if "devices" not in self.db.list_collection_names():
-                self.db.create_collection(self.collection_name)
-                self.logger.info("Collection 'devices' créée dans MongoDB.")
-            else:
-                self.logger.info("Collection 'devices' déjà existante.")
+            self.db.create_collection(self.collection_name)
+            self.logger.info("Collection 'devices' créée dans MongoDB.")
+        except CollectionInvalid:
+            self.logger.info("Collection 'devices' déjà existante.")
         except Exception as e:
             self.logger.error(f"Erreur lors de la vérification/création de la collection 'devices' : {e}", exc_info=self.is_debug)
 
