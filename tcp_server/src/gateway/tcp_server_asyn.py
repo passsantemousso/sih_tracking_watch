@@ -48,6 +48,7 @@ class TCPServerAsync:
 
         imei = None
         current_time = datetime.now(timezone.utc)
+        text_message = "Hello Watch PSM!"
 
         try:
             while True:
@@ -103,10 +104,9 @@ class TCPServerAsync:
                                 # last_disconnection doit être converti en datetime si nécessaire
                                 if current_time - last_disconnection > timedelta(hours=1):
                                     # Le délai dépasse 1h, on envoie le paquet de notification
-                                    text_unicode = self.to_unicode_hex("Hello Watch PSM!")
                                     command_str = self.command_service.send_text_message(
                                         imei=imei,
-                                        text_unicode=text_unicode
+                                        text_unicode=text_message
                                     )
                                     self.logger.info(
                                         f"Envoi du paquet spécial à {imei} car déconnexion > 1h")
@@ -129,13 +129,9 @@ class TCPServerAsync:
                                 self.logger.debug(f"Réponse envoyée à {client_address[0]} : {response}")
 
                     if is_first_connection:
-                        # Convertissez votre texte en UNICODE hex selon la notice si nécessaire
-                        text_unicode = "Hello Watch PSM!"
-                        # (Il s'agit de "hello watch!" en Unicode hex)
-
                         command_str = self.command_service.send_text_message(
                             imei=imei,
-                            text_unicode=text_unicode
+                            text_unicode=text_message
                         )
                         self.logger.info(f"Envoi d'un message texte à {imei}: {command_str}")
 
