@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 /tcp_server/system.log
+.env.prod
